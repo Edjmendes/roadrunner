@@ -1474,7 +1474,6 @@ OVC *vc_binary_blob_labelling(IVC *src, IVC *dst, int *nlabels) {
   long int i, size;
   long int posX, posA, posB, posC, posD;
   int labeltable[256] = {0};
-  int labelarea[256] = {0};
   int label = 1; // Etiqueta inicial.
   int num;
   OVC *blobs; // Apontador para lista de blobs (objectos) que ser� retornada
@@ -1722,6 +1721,9 @@ int vc_binary_blob_info(IVC *src, OVC *blobs, int nblobs) {
     // Centro de Gravidade
     blobs[i].xc = sumx / (blobs[i].area > 1 ? blobs[i].area : 1);
     blobs[i].yc = sumy / (blobs[i].area > 1 ? blobs[i].area : 1);
+
+    // Circularidade
+    blobs[i].circularity = (12.5663706 * blobs[i].width * blobs[i].height) / (blobs[i].perimeter * blobs[i].perimeter);
   }
 
   return 1;

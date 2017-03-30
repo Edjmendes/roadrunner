@@ -17,7 +17,8 @@ typedef struct {
 // Sinais de transito conhecidos
 extern Sign known_signs[];
 
-Color vc_find_color(IVC *src);
+Sign vc_identify_sign(Color color, Shape shape);
+Color vc_find_color(IVC *src, IVC* dst);
 Shape vc_find_shape(IVC *src);
 
 #endif /* SIGN_H */

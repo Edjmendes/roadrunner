@@ -1,25 +1,21 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+#include "color.h"
+#include "edges.h"
 #include "myvc.h"
 #include "sign.h"
 #include "utils.h"
-#include <stdio.h>
-#include <stdlib.h>
 
 #define MAXIMAGES 50
-
-// Calcula a circularidade de um blob.
-float circularity(OVC *blob) {
-  if (!blob)
-    return -1.0f;
-  return (12.5663706 * blob->area) / (blob->perimeter * blob->perimeter);
-}
 
 // Função auxiliar para comparar dois blobs por area.
 int compare_area(const void *a, const void *b) {
   return (((OVC *)b)->area - (((OVC *)a)->area));
 }
 
-int shape_segmentation(const char *path) {
-  IVC *src = vc_read_image((char *)path);
+int shape_segmentation(IVC *src) {
   IVC *gray = vc_grayscale_new(src->width, src->height);
   IVC *segm = vc_grayscale_new(src->width, src->height);
   IVC *dst = vc_grayscale_new(src->width, src->height);
@@ -56,7 +52,7 @@ int shape_segmentation(const char *path) {
   for (int i = 0; i < nblobs; i++) {
     OVC *blob = &blobs[i];
     vc_binary_blob_print(blob);
-    printf("Circularity: %.2f\n\n", circularity(blob));
+    printf("Circularity: %.2f\n\n", blob->circularity);
     if (!vc_draw_boundary_box(dst, blob->x, blob->x + blob->width, blob->y,
                               blob->y + blob->height, 255))
       return 0;
@@ -80,12 +76,53 @@ int shape_segmentation(const char *path) {
 }
 
 int process_file(const char *path) {
-  //IVC *src = vc_read_image((char *)path);
-  //Color color = vc_find_color(src);
-  // vc_color_print(color);
-  //Shape shape = vc_find_shape(src);
-  shape_segmentation(path);
-  //vc_image_free(src);
+  IVC *src = vc_read_image((char *)path);
+  IVC *gray = vc_grayscale_new(src->width, src->height);
+  IVC *edge = vc_grayscale_new(src->width, src->height);
+  IVC *dst = vc_rgb_new(src->width, src->height);
+
+  Color color = vc_find_color(src, dst);
+#ifdef DEBUG
+  if (!vc_write_image_info("out/color_segm.ppm", dst)) {
+    error("process_file: vc_write_image_info failed\n");
+  }
+#endif
+
+  if (!vc_rgb_to_gray(dst, gray)) {
+    error("process_file: convertion to grayscale failed\n");
+  }
+#ifdef DEBUG
+  if (!vc_write_image_info("out/color_segm.pgm", gray)) {
+    error("process_file: vc_write_image_info failed\n");
+  }
+#endif
+
+  if (!vc_gray_edge_sobel(gray, edge, 40)) {
+    error("process_file: sobel edge detection failed\n");
+  }
+#ifdef DEBUG
+  if (!vc_write_image_info("out/edge.pgm", edge)) {
+    error("process_file: vc_write_image_info failed\n");
+  }
+#endif
+
+  Shape shape = vc_find_shape(edge);
+#ifdef DEBUG
+  vc_shape_print(shape);
+#endif
+
+  Sign sign = vc_identify_sign(color, shape);
+  if (strncmp(sign.name, "UnknownSign", 51) == 0) {
+    printf("\nSinal não reconhecido\n");
+  } else {
+    printf("\nSinal reconhecido: %s\n", sign.name);
+  }
+
+  vc_image_free(src);
+  vc_image_free(gray);
+  vc_image_free(edge);
+  vc_image_free(dst);
+
   return 1;
 }
 
@@ -148,7 +185,7 @@ int main(int argc, char *argv[]) {
     for (size_t i = 0; i < nimages; i++) {
       printf("Processing: %s\n", images[i]);
       if (!process_file(images[i])) {
-      	fprintf(stderr, "main: process_file on image `%s'\n", path);
+        fprintf(stderr, "main: process_file on image `%s'\n", path);
       }
       getchar();
     }
